@@ -1,0 +1,78 @@
+balloonWidth = 20
+balloonHeight = 20
+balloonSpeed = 2
+stepsTillBalloonChangesDirection = 50
+
+windowPadding = 50
+
+createBalloon()
+
+currStep = stepsTillBalloonChangesDirection
+gameWon = "False"
+While gameWon = "False"
+  start = Clock.ElapsedMilliseconds
+  FrameRate()
+  
+  currStep = currStep + 1
+  If currStep >= stepsTillBalloonChangesDirection Then
+    getRandSign()
+    
+    gh = GraphicsWindow.Height
+    If (balloonY <= windowPadding) Then
+      sign = 1
+    EndIf
+    If (balloonY >= (gh - windowPadding)) Then
+      sign = -1
+    EndIf
+    
+    balloonDeltaY = sign * balloonSpeed
+    currStep = 0
+    
+    getRandSign()
+    
+    gh = GraphicsWindow.Height
+    If (balloonX <= windowPadding) Then
+      sign = 1
+    EndIf
+    If (balloonX >= (gw / 4 - windowPadding)) Then
+      sign = -1
+    EndIf
+    
+    balloonDeltaX = sign * balloonSpeed
+    currStep = 0
+  EndIf
+  
+  balloonY = balloonY + balloonDeltaY
+  balloonX = balloonX + balloonDeltaX
+  Shapes.Move(balloon, balloonX, balloonY)  
+EndWhile
+
+Sub createBalloon
+  balloon = Shapes.AddEllipse(balloonWidth, balloonHeight)
+  
+  gw = GraphicsWindow.Width
+  balloonX = Math.GetRandomNumber(gw / 4 + windowPadding)
+  
+  gh = GraphicsWindow.Height
+  balloonY = Math.GetRandomNumber(gh - windowPadding * 2) + windowPadding
+  
+  Shapes.Move(balloon, balloonX, balloonY)
+EndSub
+
+Sub getRandSign
+  x = Math.GetRandomNumber(2)
+  If x = 1 Then
+    sign = 1
+  Else
+    sign = -1
+  EndIf
+EndSub
+
+Sub FrameRate
+  delay = 1000 / 60 - (Clock.ElapsedMilliseconds - start)
+  If delay > 0 Then
+    Program.Delay(delay)
+  Else
+    TextWindow.WriteLine("delay = " + delay)
+  EndIf
+EndSub
