@@ -1,44 +1,32 @@
-balloonWidth = 20
-balloonHeight = 20
-balloonSpeed = 2
-stepsTillBalloonChangesDirection = 50
+' **********PROGRAM PROPERTIES**************
 
-windowPadding = 50
+' GAME PROPERTIES
+FPS = 60
 
+' BALLOON PROPERTIES
+BALLOON_WIDTH = 20
+BALLOON_HEIGHT = 20
+BALLOON_SPEED = 2 'Pixels Per Frame
+SECS_TILL_BALL_CHANGES_DIR = 1.5 'Seconds until the balloon changes direction
+STPS_TILL_BALL_CHANGES_DIR = SECS_TILL_BALL_CHANGES_DIR * FPS
+
+' WINDOW PROPERTIES
+WNDOW_PADDING = 10
+
+' **********END PROGRAM PROPERTIES***********
+
+'**********MAIN GAME LOGIC*************
 createBalloon()
 
-currStep = stepsTillBalloonChangesDirection
+currStep = STPS_TILL_BALL_CHANGES_DIR
 gameWon = "False"
 While gameWon = "False"
   start = Clock.ElapsedMilliseconds
   FrameRate()
   
   currStep = currStep + 1
-  If currStep >= stepsTillBalloonChangesDirection Then
-    getRandSign()
-    
-    gh = GraphicsWindow.Height
-    If (balloonY <= windowPadding) Then
-      sign = 1
-    EndIf
-    If (balloonY >= (gh - windowPadding)) Then
-      sign = -1
-    EndIf
-    
-    balloonDeltaY = sign * balloonSpeed
-    currStep = 0
-    
-    getRandSign()
-    
-    gh = GraphicsWindow.Height
-    If (balloonX <= windowPadding) Then
-      sign = 1
-    EndIf
-    If (balloonX >= (gw / 4 - windowPadding)) Then
-      sign = -1
-    EndIf
-    
-    balloonDeltaX = sign * balloonSpeed
+  If (currStep >= STPS_TILL_BALL_CHANGES_DIR) Or (balloonY <= WNDOW_PADDING) or (balloonY >= (gh - WNDOW_PADDING)) Then
+    changeYDirection()
     currStep = 0
   EndIf
   
@@ -46,19 +34,25 @@ While gameWon = "False"
   balloonX = balloonX + balloonDeltaX
   Shapes.Move(balloon, balloonX, balloonY)  
 EndWhile
+' ***********END MAIN GAME LOGIC***********
 
+' **********SUBROUTINES***********
+
+'   Create a balloon using balloon properties to determine width and height,
+' then position it at a random position in the left quarter of the game window.
 Sub createBalloon
-  balloon = Shapes.AddEllipse(balloonWidth, balloonHeight)
+  balloon = Shapes.AddEllipse(BALLOON_WIDTH, BALLOON_HEIGHT)
   
   gw = GraphicsWindow.Width
-  balloonX = Math.GetRandomNumber(gw / 4 + windowPadding)
+  balloonX = Math.GetRandomNumber(gw / 4 + WNDOW_PADDING)
   
   gh = GraphicsWindow.Height
-  balloonY = Math.GetRandomNumber(gh - windowPadding * 2) + windowPadding
+  balloonY = Math.GetRandomNumber(gh - WNDOW_PADDING * 2) + WNDOW_PADDING
   
   Shapes.Move(balloon, balloonX, balloonY)
 EndSub
 
+'  Set the "sign" variable to equal either 1 or -1, with a 50% liklihood of either
 Sub getRandSign
   x = Math.GetRandomNumber(2)
   If x = 1 Then
@@ -68,11 +62,56 @@ Sub getRandSign
   EndIf
 EndSub
 
+' Delay each render frame such that only a set number of frames occur each second, as defined
+' by the "FPS" property.
+' 
+' This is so that object speeds are comparable from computer to computer, rather than
+' determined by CPU speed.
+' 
+' Modified from a function used in: http://smallbasic.com/program/?PMD031-0
 Sub FrameRate
-  delay = 1000 / 60 - (Clock.ElapsedMilliseconds - start)
+  delay = 1000 / FPS - (Clock.ElapsedMilliseconds - start)
   If delay > 0 Then
     Program.Delay(delay)
   Else
     TextWindow.WriteLine("delay = " + delay)
   EndIf
+EndSub
+
+'  Randomly change (50 / 50)  the vertical direction the balloon is moving in. (up or down)
+' If the balloon is within a tolerance (set with the WINDOW_PADDING property) of
+' the top of the game window, it will "bounce" rather than randomly select the dirction.
+Sub changeYDirection
+  getRandSign()    
+  gh = GraphicsWindow.Height
+  ' "Bounce" the balloon if it's too close to the top of the game window.
+  If (balloonY <= WNDOW_PADDING) Then
+    sign = 1
+  EndIf
+  ' "Bounce" the balloon if it's too close to the bottom of the game window.
+  If (balloonY >= (gh - WNDOW_PADDING)) Then
+    sign = -1
+  EndIf  
+  
+  balloonDeltaY = sign * BALLOON_SPEED
+EndSub
+
+' **********END SUBROUTINES*************
+
+
+'\/ Code Dump
+
+Sub changeXDirection
+  getRandSign()  
+  gh = GraphicsWindow.Height
+  
+  If (balloonX <= WNDOW_PADDING) Then
+    sign = 1
+  EndIf
+  
+  If (balloonX >= (gw / 4 - WNDOW_PADDING)) Then
+    sign = -1
+  EndIf  
+  
+  balloonDeltaX = sign * BALLOON_SPEED
 EndSub
