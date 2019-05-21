@@ -5,13 +5,14 @@ FPS = 60
 
 ' BALLOON PROPERTIES
 BALLOON_DIAMETER = 30
+BALLOON_OUTLINE_THICKNESS = 2
 BALLOON_SPEED = 3 'Pixels Per Frame
-SECS_TILL_BALL_CHANGES_DIR = 5 'Seconds until the balloon changes direction
+SECS_TILL_BALL_CHANGES_DIR = 1 'Seconds until the balloon changes direction
 FRAMES_TILL_BALL_CHANGES_DIR = SECS_TILL_BALL_CHANGES_DIR * FPS
 
 ' PLAYER PROPERTIES
 PLAYER_WIDTH = 60
-PLAYER_HEIGHT = 30
+PLAYER_HEIGHT = 40
 PLAYER_BARREL_WIDTH = 20
 PLAYER_BARREL_HEIGHT = 15
 PLAYER_SPEED = 2 'Pixels Per Frame
@@ -23,6 +24,9 @@ BULLET_SPEED = BALLOON_SPEED * 1.5
 
 ' WINDOW PROPERTIES
 WNDOW_PADDING = 10
+WINDOW_WIDTH = 640
+WINDOW_HEIGHT = 480
+SCORE_PANEL_HEIGHT = 45
 
 '**********MAIN GAME LOGIC*************
 '*******************************************
@@ -32,8 +36,10 @@ gameWon = "False"
 playerMoving = "False"
 bulletExists = "False"
 missedShots = 0
-gw = GraphicsWindow.Width
-gh = GraphicsWindow.Height
+
+' Intialise Game Graphics Window
+CreateGameWindow()
+CreateScorePanel()
 
 ' Create Game Objects
 CreateBalloon()
@@ -56,20 +62,96 @@ While gameWon = "False"
   EndIf
 EndWhile
 
+' End game
+GraphicsWindow.ShowMessage("You have shot the balloon down, with " + missedShots + " missed shots!", "Game Over!")
+Program.End()
+
 ' **********SUBROUTINES***********
 '*************************************
+'  Game Window Subroutines******************************
+
+' Create the game window with a border.
+Sub CreateGameWindow
+  ' Set the game window height and width
+  GraphicsWindow.Height = WINDOW_HEIGHT
+  GraphicsWindow.Width = WINDOW_WIDTH
+  gw = GraphicsWindow.Width
+  gh = GraphicsWindow.Height
+  
+  GraphicsWindow.Title = "Balloon Shooting Challenge"
+  
+  ' Draw the border within which the game will take place, leaving room for the missed shots panel (score panel).
+  GraphicsWindow.BrushColor = "White"
+  GraphicsWindow.PenColor = "Black"
+  GraphicsWindow.PenWidth = WNDOW_PADDING / 2
+  border = Shapes.AddRectangle(gw, gh - SCORE_PANEL_HEIGHT)
+  Shapes.Move(border, 0, SCORE_PANEL_HEIGHT)
+EndSub
+
+' Create the missed shots text, centering it to the left side of the score panel.
+Sub CreateScorePanel
+  GraphicsWindow.BrushColor = "Black"
+  GraphicsWindow.FontSize = SCORE_PANEL_HEIGHT - (WNDOW_PADDING * 2) 'Make the font as large as possible while allowing space for padding.
+  scoreText = Shapes.AddText("Missed Shots: " + missedShots)
+  Shapes.Move(scoreText, WNDOW_PADDING, WNDOW_PADDING)  
+EndSub
+
+' Balloon Subroutines************************************
+
 '  Create a balloon using balloon properties to determine width and height,
 ' then position it at a random position in the left quarter of the game window.
 Sub CreateBalloon
   GraphicsWindow.BrushColor = "YellowGreen"
   GraphicsWindow.PenColor = "LimeGreen"
+  GraphicsWindow.PenWidth = BALLOON_OUTLINE_THICKNESS
   balloon = Shapes.AddEllipse(BALLOON_DIAMETER, BALLOON_DIAMETER)
   
   balloonX = WNDOW_PADDING
-  balloonY = Math.GetRandomNumber(gh - WNDOW_PADDING * 2) + WNDOW_PADDING - (BALLOON_DIAMETER / 2)
+  balloonY = Math.GetRandomNumber(gh - WNDOW_PADDING * 2 - SCORE_PANEL_HEIGHT) + WNDOW_PADDING + SCORE_PANEL_HEIGHT - (BALLOON_DIAMETER / 2)
   
   Shapes.Move(balloon, balloonX, balloonY)
 EndSub
+
+' Move the balloon up or down for a defined number of frames "FRAMES_TILL_BALL_CHANGES_DIR"
+' then either keep going in that direction, or reverse direction (50 / 50 chance)
+Sub AnimateBalloon
+  currStep = currStep + 1
+  If (currStep >= FRAMES_TILL_BALL_CHANGES_DIR) Or (balloonY <= WNDOW_PADDING + SCORE_PANEL_HEIGHT) or (balloonY >= (gh - WNDOW_PADDING - BALLOON_DIAMETER)) Then
+    ChangeYDirection()
+    currStep = 0
+  EndIf
+  balloonY = balloonY + balloonDeltaY
+  Shapes.Move(balloon, balloonX, balloonY)  
+EndSub
+
+'  Randomly change (50 / 50)  the vertical direction the balloon is moving in. (up or down)
+' If the balloon is within a tolerance (set with the WINDOW_PADDING property) of
+' the top of the game window, it will "bounce" rather than randomly select the dirction.
+Sub ChangeYDirection
+  GetRandBalloonDirection() 
+  gh = GraphicsWindow.Height
+  ' "Bounce" the balloon if it's too close to the top of the game window.
+  If (balloonY <= WNDOW_PADDING + SCORE_PANEL_HEIGHT) Then
+    balloonDirection = 1
+  EndIf
+  ' "Bounce" the balloon if it's too close to the bottom of the game window.
+  If (balloonY >= (gh - WNDOW_PADDING - BALLOON_DIAMETER)) Then
+    balloonDirection = -1
+  EndIf  
+  balloonDeltaY = balloonDirection * BALLOON_SPEED
+EndSub
+  
+'  Set the "balloonDirection" variable to equal either 1 or -1, with a 50% liklihood of either
+Sub GetRandBalloonDirection
+  x = Math.GetRandomNumber(2)
+  If x = 1 Then
+    balloonDirection = 1
+  Else
+    balloonDirection = -1
+  EndIf
+EndSub
+
+' Player Subroutines***********************************************************************
 
 ' Create the player at the center right of the game window.
 Sub CreatePlayer
@@ -83,7 +165,7 @@ Sub CreatePlayer
   playerBarrelX = playerBodyX - PLAYER_BARREL_WIDTH
   
   ' Set y coordinate to middle of screen.
-  playerBodyY = (gh / 2) - (PLAYER_HEIGHT / 2)
+  playerBodyY = (gh / 2) - (PLAYER_HEIGHT / 2) + (SCORE_PANEL_HEIGHT / 2)
   playerBarrelY = playerBodyY + (PLAYER_HEIGHT / 2) - (PLAYER_BARREL_HEIGHT / 2)
   Shapes.Move(playerBody, playerBodyX, playerBodyY)
   Shapes.Move(playerBarrel, playerBarrelX, playerBarrelY)
@@ -95,7 +177,7 @@ Sub MovePlayer
   newPlayerBodyY = playerBodyY + playerDirection * PLAYER_SPEED
   
   ' If moving to the new coordinate won't exceed the boundries of the game window, move to new location
-  If (newPlayerBodyY > WNDOW_PADDING) And ((newPlayerBodyY + PLAYER_HEIGHT) < gh - WNDOW_PADDING) Then
+  If (newPlayerBodyY > WNDOW_PADDING + SCORE_PANEL_HEIGHT) And ((newPlayerBodyY + PLAYER_HEIGHT) < gh - WNDOW_PADDING) Then
     playerBodyY = newPlayerBodyY
     playerBarrelY = playerBodyY + (PLAYER_HEIGHT / 2) - (PLAYER_BARREL_HEIGHT / 2)
     Shapes.Move(playerBody, playerBodyX, playerBodyY)
@@ -103,22 +185,9 @@ Sub MovePlayer
   EndIf
 EndSub
 
-' Handle key presses
-Sub OnKeyDown
-  ' If up arrow used, set player direction upwards and enable player movement.
-  If GraphicsWindow.LastKey = "Up" Then
-    playerMoving = "True"
-    playerDirection = -1
-  ' If up arrow used, set player direction downwards and enable player movement.
-  ElseIf GraphicsWindow.LastKey = "Down" Then
-    playerMoving = "True"
-    playerDirection = 1
-  ' If space key pressed, shoot bullet.
-  ElseIf GraphicsWindow.LastKey = "Space" Then
-    Shoot()
-  EndIf
-EndSub
+' Bullet Subroutines**************************************************************
 
+' Create the bullet at the tip of the player's barrel.
 ' If no bullet already exists, shoot a bullet from the player barrel, which will move towards the left.
 Sub Shoot
   If bulletExists = "False" Then
@@ -126,7 +195,7 @@ Sub Shoot
   EndIf
 EndSub
 
-' Create the bullet at the tip of the player's barrel.
+' Create the bullet according to defined properties, then move to the end of the player's barrel.
 Sub CreateBullet
   bulletExists = "True"
   GraphicsWindow.BrushColor = "Gray"
@@ -149,6 +218,7 @@ Sub MoveBullet
     bulletExists = "False"
     Shapes.Remove(bullet)
     missedShots = missedShots + 1
+    Shapes.SetText(scoreText, "Missed Shots: " + missedShots)
   EndIf
 EndSub
 
@@ -183,12 +253,32 @@ Sub CheckBulletBalloonCollision
   EndIf
 EndSub
 
+' Input Subroutines *******************************************************
+
+' Handle key presses
+Sub OnKeyDown
+  ' If up arrow used, set player direction upwards and enable player movement.
+  If GraphicsWindow.LastKey = "Up" Then
+    playerMoving = "True"
+    playerDirection = -1
+  ' If up arrow used, set player direction downwards and enable player movement.
+  ElseIf GraphicsWindow.LastKey = "Down" Then
+    playerMoving = "True"
+    playerDirection = 1
+  ' If space key pressed, shoot bullet.
+  ElseIf GraphicsWindow.LastKey = "Space" Then
+    Shoot()
+  EndIf
+EndSub
+
 ' Disable player movement if arrow key depressed
 Sub OnKeyUp
   If (GraphicsWindow.LastKey = "Up") Or (GraphicsWindow.LastKey = "Down") Then
     playerMoving = "False"
   EndIf
 EndSub
+
+' Misc Subroutines *******************************************************************
 
 ' Delay each render frame such that only a set number of frames occur each second, as defined
 ' by the "FPS" property.
@@ -204,43 +294,4 @@ Sub SetFrameRate
     Program.Delay(delay)
   EndIf
   start = Clock.ElapsedMilliseconds
-EndSub
-
-'  Randomly change (50 / 50)  the vertical direction the balloon is moving in. (up or down)
-' If the balloon is within a tolerance (set with the WINDOW_PADDING property) of
-' the top of the game window, it will "bounce" rather than randomly select the dirction.
-Sub ChangeYDirection
-  GetRandballoonDirection() 
-  gh = GraphicsWindow.Height
-  ' "Bounce" the balloon if it's too close to the top of the game window.
-  If (balloonY <= WNDOW_PADDING) Then
-    balloonDirection = 1
-  EndIf
-  ' "Bounce" the balloon if it's too close to the bottom of the game window.
-  If (balloonY >= (gh - WNDOW_PADDING)) Then
-    balloonDirection = -1
-  EndIf  
-  balloonDeltaY = balloonDirection * BALLOON_SPEED
-EndSub
-  
-'  Set the "balloonDirection" variable to equal either 1 or -1, with a 50% liklihood of either
-Sub GetRandballoonDirection
-  x = Math.GetRandomNumber(2)
-  If x = 1 Then
-    balloonDirection = 1
-  Else
-    balloonDirection = -1
-  EndIf
-EndSub
-
-' Move the balloon up or down for a defined number of frames "FRAMES_TILL_BALL_CHANGES_DIR"
-' then either keep going in that direction, or reverse direction (50 / 50 chance)
-Sub AnimateBalloon
-  currStep = currStep + 1
-  If (currStep >= FRAMES_TILL_BALL_CHANGES_DIR) Or (balloonY <= WNDOW_PADDING) or (balloonY >= (gh - WNDOW_PADDING - BALLOON_DIAMETER)) Then
-    ChangeYDirection()
-    currStep = 0
-  EndIf
-  balloonY = balloonY + balloonDeltaY
-  Shapes.Move(balloon, balloonX, balloonY)  
 EndSub
