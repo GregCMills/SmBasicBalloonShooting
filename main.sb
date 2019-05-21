@@ -4,10 +4,9 @@
 FPS = 60
 
 ' BALLOON PROPERTIES
-BALLOON_WIDTH = 30
-BALLOON_HEIGHT = 30
-BALLOON_SPEED = 2 'Pixels Per Frame
-SECS_TILL_BALL_CHANGES_DIR = 1 'Seconds until the balloon changes direction
+BALLOON_DIAMETER = 30
+BALLOON_SPEED = 3 'Pixels Per Frame
+SECS_TILL_BALL_CHANGES_DIR = 5 'Seconds until the balloon changes direction
 FRAMES_TILL_BALL_CHANGES_DIR = SECS_TILL_BALL_CHANGES_DIR * FPS
 
 ' PLAYER PROPERTIES
@@ -15,78 +14,179 @@ PLAYER_WIDTH = 60
 PLAYER_HEIGHT = 30
 PLAYER_BARREL_WIDTH = 20
 PLAYER_BARREL_HEIGHT = 15
+PLAYER_SPEED = 2 'Pixels Per Frame
+
+' BULLET PROPERTIES
+BULLET_HEIGHT = 10
+BULLET_WIDTH = 10
+BULLET_SPEED = BALLOON_SPEED * 1.5
 
 ' WINDOW PROPERTIES
 WNDOW_PADDING = 10
 
 '**********MAIN GAME LOGIC*************
 '*******************************************
-createBalloon()
-createPlayer()
-
+' Initialise Variables
 currStep = FRAMES_TILL_BALL_CHANGES_DIR
 gameWon = "False"
+playerMoving = "False"
+bulletExists = "False"
+missedShots = 0
+gw = GraphicsWindow.Width
+gh = GraphicsWindow.Height
+
+' Create Game Objects
+CreateBalloon()
+CreatePlayer()
+
+' Subscribe to events
+GraphicsWindow.KeyDown = OnKeyDown
+GraphicsWindow.KeyUp = OnKeyUp
+
+' Main game loop
 While gameWon = "False"
-  
-  FrameRate()
-  
-  currStep = currStep + 1
-  If (currStep >= FRAMES_TILL_BALL_CHANGES_DIR) Or (balloonY <= WNDOW_PADDING) or (balloonY >= (gh - WNDOW_PADDING - BALLOON_HEIGHT)) Then
-    changeYDirection()
-    currStep = 0
+  SetFrameRate()
+  AnimateBalloon()
+  If playerMoving = "True" Then
+    MovePlayer()
   EndIf
-  
-  balloonY = balloonY + balloonDeltaY
-  balloonX = balloonX + balloonDeltaX
-  Shapes.Move(balloon, balloonX, balloonY)  
+  If bulletExists = "True" Then
+    MoveBullet()
+    CheckBulletBalloonCollision()
+  EndIf
 EndWhile
 
 ' **********SUBROUTINES***********
 '*************************************
-'   Create a balloon using balloon properties to determine width and height,
+'  Create a balloon using balloon properties to determine width and height,
 ' then position it at a random position in the left quarter of the game window.
-Sub createBalloon
+Sub CreateBalloon
   GraphicsWindow.BrushColor = "YellowGreen"
   GraphicsWindow.PenColor = "LimeGreen"
-  balloon = Shapes.AddEllipse(BALLOON_WIDTH, BALLOON_HEIGHT)
+  balloon = Shapes.AddEllipse(BALLOON_DIAMETER, BALLOON_DIAMETER)
   
-  gw = GraphicsWindow.Width
-  balloonX = Math.GetRandomNumber(gw / 4 + WNDOW_PADDING)
-  
-  gh = GraphicsWindow.Height
-  balloonY = Math.GetRandomNumber(gh - WNDOW_PADDING * 2) + WNDOW_PADDING
+  balloonX = WNDOW_PADDING
+  balloonY = Math.GetRandomNumber(gh - WNDOW_PADDING * 2) + WNDOW_PADDING - (BALLOON_DIAMETER / 2)
   
   Shapes.Move(balloon, balloonX, balloonY)
 EndSub
 
 ' Create the player at the center right of the game window.
-Sub createPlayer
+Sub CreatePlayer
   GraphicsWindow.BrushColor = "Black"
   GraphicsWindow.PenColor = "Black"
   playerBody = Shapes.AddRectangle(PLAYER_WIDTH, PLAYER_HEIGHT)
   playerBarrel = Shapes.AddRectangle(PLAYER_BARREL_WIDTH, PLAYER_BARREL_HEIGHT)
   
   ' Set x coordinate to far right of game window, with a little padding.
-  gw = GraphicsWindow.Width
   playerBodyX = gw - WNDOW_PADDING - PLAYER_WIDTH
   playerBarrelX = playerBodyX - PLAYER_BARREL_WIDTH
   
   ' Set y coordinate to middle of screen.
-  gh = GraphicsWindow.Height
   playerBodyY = (gh / 2) - (PLAYER_HEIGHT / 2)
   playerBarrelY = playerBodyY + (PLAYER_HEIGHT / 2) - (PLAYER_BARREL_HEIGHT / 2)
-  
   Shapes.Move(playerBody, playerBodyX, playerBodyY)
   Shapes.Move(playerBarrel, playerBarrelX, playerBarrelY)
 EndSub
 
-'  Set the "sign" variable to equal either 1 or -1, with a 50% liklihood of either
-Sub getRandSign
-  x = Math.GetRandomNumber(2)
-  If x = 1 Then
-    sign = 1
+' Move the player to a new Y coordinate based on "playerDirection" and "PLAYER_SPEED"
+Sub MovePlayer
+  ' Calculate the new player Y coordinate based on direction and speed
+  newPlayerBodyY = playerBodyY + playerDirection * PLAYER_SPEED
+  
+  ' If moving to the new coordinate won't exceed the boundries of the game window, move to new location
+  If (newPlayerBodyY > WNDOW_PADDING) And ((newPlayerBodyY + PLAYER_HEIGHT) < gh - WNDOW_PADDING) Then
+    playerBodyY = newPlayerBodyY
+    playerBarrelY = playerBodyY + (PLAYER_HEIGHT / 2) - (PLAYER_BARREL_HEIGHT / 2)
+    Shapes.Move(playerBody, playerBodyX, playerBodyY)
+    Shapes.Move(playerBarrel, playerBarrelX, playerBarrelY)
+  EndIf
+EndSub
+
+' Handle key presses
+Sub OnKeyDown
+  ' If up arrow used, set player direction upwards and enable player movement.
+  If GraphicsWindow.LastKey = "Up" Then
+    playerMoving = "True"
+    playerDirection = -1
+  ' If up arrow used, set player direction downwards and enable player movement.
+  ElseIf GraphicsWindow.LastKey = "Down" Then
+    playerMoving = "True"
+    playerDirection = 1
+  ' If space key pressed, shoot bullet.
+  ElseIf GraphicsWindow.LastKey = "Space" Then
+    Shoot()
+  EndIf
+EndSub
+
+' If no bullet already exists, shoot a bullet from the player barrel, which will move towards the left.
+Sub Shoot
+  If bulletExists = "False" Then
+    CreateBullet()
+  EndIf
+EndSub
+
+' Create the bullet at the tip of the player's barrel.
+Sub CreateBullet
+  bulletExists = "True"
+  GraphicsWindow.BrushColor = "Gray"
+  GraphicsWindow.PenColor = "Gray"
+  bullet = Shapes.AddRectangle(BULLET_WIDTH, BULLET_HEIGHT)
+  bulletX = playerBarrelX - BULLET_WIDTH
+  bulletY = playerBarrelY + (PLAYER_BARREL_HEIGHT / 2) - (BULLET_HEIGHT / 2)
+  Shapes.Move(bullet, bulletX, bulletY)
+EndSub
+
+' Move the bullet to the left, by an amount defined with the property 'BULLET_SPEED'. 
+' If this movement would take the bullet too far to the left, (i.e. withing the "WINDOW_PADDING" tolerance)
+' instead remove the bullet, and iterate the number of 'missed shots' the player has taken.
+Sub MoveBullet
+  newBulletX = bulletX - BULLET_SPEED
+  If newBulletX > WNDOW_PADDING Then
+    bulletX = newBulletX
+    Shapes.Move(bullet, bulletX, bulletY)
   Else
-    sign = -1
+    bulletExists = "False"
+    Shapes.Remove(bullet)
+    missedShots = missedShots + 1
+  EndIf
+EndSub
+
+' Check if the bullet is colliding with the balloon
+' The algorithm was modified from e James' answer given to the following StackOverflow question:
+' https://stackoverflow.com/questions/401847/circle-rectangle-collision-detection-intersection
+Sub CheckBulletBalloonCollision
+  bx = balloonX + (BALLOON_DIAMETER / 2) ' Calculate ballon centre x coordinate
+  by = balloonY + (BALLOON_DIAMETER / 2) ' Calculate balloon centre y coordinate
+  sx = bulletX + (BULLET_WIDTH / 2) ' Calculate bullet (s)hot centre x coordinate
+  sy = bulletY + (BULLET_HEIGHT / 2) ' Caclulate bullet (s)hot centre y coordinate
+  
+  ' Caclulate the horizontal distance between the bullet and balloon centre points.
+  centrePointDistanceX = Math.Abs(bx - sx)
+  ' Caclulate the vertical distance between the bullet and balloon centre points.
+  centrePointDistanceY = Math.Abs(by - sy)
+  
+  ' Only calculate collision if bullet isn't too far from balloon for a collision to be possible .
+  If (centrePointDistanceX < (BULLET_WIDTH / 2 + BALLOON_DIAMETER / 2)) And (centrePointDistanceY < (BULLET_HEIGHT / 2 + BALLOON_DIAMETER / 2)) Then
+    ' Detect whether bullet is close enough to balloon that collision is guranteed.
+    If (centrePointDistanceX <= (BULLET_WIDTH / 2)) Then
+      gameWon = "True"
+    ElseIf (centrePointDistanceY <= (BULLET_HEIGHT / 2)) Then
+      gameWon = "True"
+    Else
+      '  Detect whether bullet is *NOT* in one of the four corners of the circle, where a square collision box would register a hit.
+      cornerDistanceSq = Math.Power((centrePointDistanceX - BULLET_WIDTH / 2), 2) + Math.Power((centrePointDistanceY - BULLET_HEIGHT / 2), 2)
+      If cornerDistanceSq <= Math.Power((BALLOON_DIAMETER / 2), 2) Then
+        gameWon = "True"
+      EndIf
+    EndIf
+  EndIf
+EndSub
+
+' Disable player movement if arrow key depressed
+Sub OnKeyUp
+  If (GraphicsWindow.LastKey = "Up") Or (GraphicsWindow.LastKey = "Down") Then
+    playerMoving = "False"
   EndIf
 EndSub
 
@@ -97,7 +197,7 @@ EndSub
 ' determined by CPU speed.
 ' 
 ' Modified from a function used in: http://smallbasic.com/program/?PMD031-0
-Sub FrameRate
+Sub SetFrameRate
   millisecondsPerFrame = 1000 / FPS
   delay = millisecondsPerFrame - (Clock.ElapsedMilliseconds - start)
   If delay > 0 Then
@@ -109,35 +209,38 @@ EndSub
 '  Randomly change (50 / 50)  the vertical direction the balloon is moving in. (up or down)
 ' If the balloon is within a tolerance (set with the WINDOW_PADDING property) of
 ' the top of the game window, it will "bounce" rather than randomly select the dirction.
-Sub changeYDirection
-  getRandSign()    
+Sub ChangeYDirection
+  GetRandballoonDirection() 
   gh = GraphicsWindow.Height
   ' "Bounce" the balloon if it's too close to the top of the game window.
   If (balloonY <= WNDOW_PADDING) Then
-    sign = 1
+    balloonDirection = 1
   EndIf
   ' "Bounce" the balloon if it's too close to the bottom of the game window.
   If (balloonY >= (gh - WNDOW_PADDING)) Then
-    sign = -1
+    balloonDirection = -1
   EndIf  
+  balloonDeltaY = balloonDirection * BALLOON_SPEED
+EndSub
   
-  balloonDeltaY = sign * BALLOON_SPEED
+'  Set the "balloonDirection" variable to equal either 1 or -1, with a 50% liklihood of either
+Sub GetRandballoonDirection
+  x = Math.GetRandomNumber(2)
+  If x = 1 Then
+    balloonDirection = 1
+  Else
+    balloonDirection = -1
+  EndIf
 EndSub
 
-
-' ******************\/ Code Dump*******************
-
-Sub changeXDirection
-  getRandSign()  
-  gh = GraphicsWindow.Height
-  
-  If (balloonX <= WNDOW_PADDING) Then
-    sign = 1
+' Move the balloon up or down for a defined number of frames "FRAMES_TILL_BALL_CHANGES_DIR"
+' then either keep going in that direction, or reverse direction (50 / 50 chance)
+Sub AnimateBalloon
+  currStep = currStep + 1
+  If (currStep >= FRAMES_TILL_BALL_CHANGES_DIR) Or (balloonY <= WNDOW_PADDING) or (balloonY >= (gh - WNDOW_PADDING - BALLOON_DIAMETER)) Then
+    ChangeYDirection()
+    currStep = 0
   EndIf
-  
-  If (balloonX >= (gw / 4 - WNDOW_PADDING)) Then
-    sign = -1
-  EndIf  
-  
-  balloonDeltaX = sign * BALLOON_SPEED
+  balloonY = balloonY + balloonDeltaY
+  Shapes.Move(balloon, balloonX, balloonY)  
 EndSub
