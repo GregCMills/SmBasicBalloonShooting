@@ -1,31 +1,37 @@
 ' **********PROGRAM PROPERTIES**************
-
+' *************************************************
 ' GAME PROPERTIES
 FPS = 60
 
 ' BALLOON PROPERTIES
-BALLOON_WIDTH = 20
-BALLOON_HEIGHT = 20
+BALLOON_WIDTH = 30
+BALLOON_HEIGHT = 30
 BALLOON_SPEED = 2 'Pixels Per Frame
-SECS_TILL_BALL_CHANGES_DIR = 1.5 'Seconds until the balloon changes direction
-STPS_TILL_BALL_CHANGES_DIR = SECS_TILL_BALL_CHANGES_DIR * FPS
+SECS_TILL_BALL_CHANGES_DIR = 1 'Seconds until the balloon changes direction
+FRAMES_TILL_BALL_CHANGES_DIR = SECS_TILL_BALL_CHANGES_DIR * FPS
+
+' PLAYER PROPERTIES
+PLAYER_WIDTH = 60
+PLAYER_HEIGHT = 30
+PLAYER_BARREL_WIDTH = 20
+PLAYER_BARREL_HEIGHT = 15
 
 ' WINDOW PROPERTIES
 WNDOW_PADDING = 10
 
-' **********END PROGRAM PROPERTIES***********
-
 '**********MAIN GAME LOGIC*************
+'*******************************************
 createBalloon()
+createPlayer()
 
-currStep = STPS_TILL_BALL_CHANGES_DIR
+currStep = FRAMES_TILL_BALL_CHANGES_DIR
 gameWon = "False"
 While gameWon = "False"
-  start = Clock.ElapsedMilliseconds
+  
   FrameRate()
   
   currStep = currStep + 1
-  If (currStep >= STPS_TILL_BALL_CHANGES_DIR) Or (balloonY <= WNDOW_PADDING) or (balloonY >= (gh - WNDOW_PADDING)) Then
+  If (currStep >= FRAMES_TILL_BALL_CHANGES_DIR) Or (balloonY <= WNDOW_PADDING) or (balloonY >= (gh - WNDOW_PADDING - BALLOON_HEIGHT)) Then
     changeYDirection()
     currStep = 0
   EndIf
@@ -34,13 +40,14 @@ While gameWon = "False"
   balloonX = balloonX + balloonDeltaX
   Shapes.Move(balloon, balloonX, balloonY)  
 EndWhile
-' ***********END MAIN GAME LOGIC***********
 
 ' **********SUBROUTINES***********
-
+'*************************************
 '   Create a balloon using balloon properties to determine width and height,
 ' then position it at a random position in the left quarter of the game window.
 Sub createBalloon
+  GraphicsWindow.BrushColor = "YellowGreen"
+  GraphicsWindow.PenColor = "LimeGreen"
   balloon = Shapes.AddEllipse(BALLOON_WIDTH, BALLOON_HEIGHT)
   
   gw = GraphicsWindow.Width
@@ -50,6 +57,27 @@ Sub createBalloon
   balloonY = Math.GetRandomNumber(gh - WNDOW_PADDING * 2) + WNDOW_PADDING
   
   Shapes.Move(balloon, balloonX, balloonY)
+EndSub
+
+' Create the player at the center right of the game window.
+Sub createPlayer
+  GraphicsWindow.BrushColor = "Black"
+  GraphicsWindow.PenColor = "Black"
+  playerBody = Shapes.AddRectangle(PLAYER_WIDTH, PLAYER_HEIGHT)
+  playerBarrel = Shapes.AddRectangle(PLAYER_BARREL_WIDTH, PLAYER_BARREL_HEIGHT)
+  
+  ' Set x coordinate to far right of game window, with a little padding.
+  gw = GraphicsWindow.Width
+  playerBodyX = gw - WNDOW_PADDING - PLAYER_WIDTH
+  playerBarrelX = playerBodyX - PLAYER_BARREL_WIDTH
+  
+  ' Set y coordinate to middle of screen.
+  gh = GraphicsWindow.Height
+  playerBodyY = (gh / 2) - (PLAYER_HEIGHT / 2)
+  playerBarrelY = playerBodyY + (PLAYER_HEIGHT / 2) - (PLAYER_BARREL_HEIGHT / 2)
+  
+  Shapes.Move(playerBody, playerBodyX, playerBodyY)
+  Shapes.Move(playerBarrel, playerBarrelX, playerBarrelY)
 EndSub
 
 '  Set the "sign" variable to equal either 1 or -1, with a 50% liklihood of either
@@ -70,12 +98,12 @@ EndSub
 ' 
 ' Modified from a function used in: http://smallbasic.com/program/?PMD031-0
 Sub FrameRate
-  delay = 1000 / FPS - (Clock.ElapsedMilliseconds - start)
+  millisecondsPerFrame = 1000 / FPS
+  delay = millisecondsPerFrame - (Clock.ElapsedMilliseconds - start)
   If delay > 0 Then
     Program.Delay(delay)
-  Else
-    TextWindow.WriteLine("delay = " + delay)
   EndIf
+  start = Clock.ElapsedMilliseconds
 EndSub
 
 '  Randomly change (50 / 50)  the vertical direction the balloon is moving in. (up or down)
@@ -96,10 +124,8 @@ Sub changeYDirection
   balloonDeltaY = sign * BALLOON_SPEED
 EndSub
 
-' **********END SUBROUTINES*************
 
-
-'\/ Code Dump
+' ******************\/ Code Dump*******************
 
 Sub changeXDirection
   getRandSign()  
